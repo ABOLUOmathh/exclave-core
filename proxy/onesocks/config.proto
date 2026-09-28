@@ -1,0 +1,22 @@
+syntax = "proto3";
+
+package exclave.core.proxy.onesocks;
+
+option go_package =
+"github.com/exclavenetwork/exclave-core/v5/proxy/onesocks";
+
+
+import "common/protocol/server_spec.proto";
+
+
+message ClientConfig {
+
+    repeated exclave.core.common.protocol.ServerEndpoint server = 1;
+
+    string cipher = 2;
+
+    string password = 3;
+
+    uint32 padding_len = 4;
+
+}
