@@ -46,6 +46,7 @@ import (
 	_ "github.com/exclavenetwork/exclave-core/v5/proxy/http3"
 	_ "github.com/exclavenetwork/exclave-core/v5/proxy/loopback"
 	_ "github.com/exclavenetwork/exclave-core/v5/proxy/mixed"
+	_ "github.com/exclavenetwork/exclave-core/v5/proxy/onesocks"
 	_ "github.com/exclavenetwork/exclave-core/v5/proxy/shadowsocks"
 	_ "github.com/exclavenetwork/exclave-core/v5/proxy/shadowsocks_2022"
 	_ "github.com/exclavenetwork/exclave-core/v5/proxy/sip003"
