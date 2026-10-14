@@ -7,6 +7,7 @@ import (
 	"github.com/exclavenetwork/exclave-core/v5/common/serial"
 	"github.com/exclavenetwork/exclave-core/v5/infra/conf/cfgcommon"
 	"github.com/exclavenetwork/exclave-core/v5/proxy/onesocks"
+	onesocksWire "github.com/exclavenetwork/exclave-core/v5/transport/heysocks/onesocks"
 )
 
 type OneSocksServerTarget struct {
@@ -25,14 +26,22 @@ type OneSocksClientConfig struct {
 }
 
 func (v *OneSocksClientConfig) Build() (proto.Message, error) {
-
 	config := new(onesocks.ClientConfig)
+
+	paddingLen, err := onesocksWire.ParsePaddingLen(v.PaddingLen)
+	if err != nil {
+		return nil, newError("invalid onesocks paddingLen: ", err)
+	}
+
+	config.PaddingLen = uint32(paddingLen)
+	config.Udp = v.UDP
+	config.Uot = v.UOT
+	config.UotVersion = v.UOTVersion
 
 	config.Server = make([]*protocol.ServerEndpoint, len(v.Servers))
 
 	for idx, server := range v.Servers {
-
-		if server.Address == nil {
+		if server == nil || server.Address == nil {
 			return nil, newError("onesocks server address is not set")
 		}
 
@@ -51,11 +60,6 @@ func (v *OneSocksClientConfig) Build() (proto.Message, error) {
 			},
 		}
 	}
-
-	config.PaddingLen = v.PaddingLen
-	config.Udp = v.UDP
-	config.Uot = v.UOT
-	config.UotVersion = v.UOTVersion
 
 	return config, nil
 }

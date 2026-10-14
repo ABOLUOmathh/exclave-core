@@ -1,3 +1,4 @@
+
 syntax = "proto3";
 
 package exclave.core.proxy.onesocks;
@@ -5,18 +6,22 @@ package exclave.core.proxy.onesocks;
 option go_package =
 "github.com/exclavenetwork/exclave-core/v5/proxy/onesocks";
 
-
 import "common/protocol/server_spec.proto";
 
-
 message ClientConfig {
-
     repeated exclave.core.common.protocol.ServerEndpoint server = 1;
 
     string cipher = 2;
-
     string password = 3;
-
     uint32 padding_len = 4;
 
+    bool udp = 5;
+    bool uot = 6;
+    uint32 uot_version = 7;
+}
+
+// OneSocks 用户认证配置
+message Account {
+    string cipher = 1;
+    string password = 2;
 }

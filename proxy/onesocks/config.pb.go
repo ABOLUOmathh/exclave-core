@@ -22,72 +22,22 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-type Account struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Password      string                 `protobuf:"bytes,1,opt,name=password,proto3" json:"password,omitempty"`
-	Cipher        string                 `protobuf:"bytes,2,opt,name=cipher,proto3" json:"cipher,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *Account) Reset() {
-	*x = Account{}
-	mi := &file_proxy_onesocks_config_proto_msgTypes[0]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *Account) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*Account) ProtoMessage() {}
-
-func (x *Account) ProtoReflect() protoreflect.Message {
-	mi := &file_proxy_onesocks_config_proto_msgTypes[0]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use Account.ProtoReflect.Descriptor instead.
-func (*Account) Descriptor() ([]byte, []int) {
-	return file_proxy_onesocks_config_proto_rawDescGZIP(), []int{0}
-}
-
-func (x *Account) GetPassword() string {
-	if x != nil {
-		return x.Password
-	}
-	return ""
-}
-
-func (x *Account) GetCipher() string {
-	if x != nil {
-		return x.Cipher
-	}
-	return ""
-}
-
 type ClientConfig struct {
 	state         protoimpl.MessageState     `protogen:"open.v1"`
 	Server        []*protocol.ServerEndpoint `protobuf:"bytes,1,rep,name=server,proto3" json:"server,omitempty"`
-	PaddingLen    string                     `protobuf:"bytes,2,opt,name=padding_len,json=paddingLen,proto3" json:"padding_len,omitempty"`
-	Udp           bool                       `protobuf:"varint,3,opt,name=udp,proto3" json:"udp,omitempty"`
-	Uot           bool                       `protobuf:"varint,4,opt,name=uot,proto3" json:"uot,omitempty"`
-	UotVersion    uint32                     `protobuf:"varint,5,opt,name=uot_version,json=uotVersion,proto3" json:"uot_version,omitempty"`
+	Cipher        string                     `protobuf:"bytes,2,opt,name=cipher,proto3" json:"cipher,omitempty"`
+	Password      string                     `protobuf:"bytes,3,opt,name=password,proto3" json:"password,omitempty"`
+	PaddingLen    uint32                     `protobuf:"varint,4,opt,name=padding_len,json=paddingLen,proto3" json:"padding_len,omitempty"`
+	Udp           bool                       `protobuf:"varint,5,opt,name=udp,proto3" json:"udp,omitempty"`
+	Uot           bool                       `protobuf:"varint,6,opt,name=uot,proto3" json:"uot,omitempty"`
+	UotVersion    uint32                     `protobuf:"varint,7,opt,name=uot_version,json=uotVersion,proto3" json:"uot_version,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *ClientConfig) Reset() {
 	*x = ClientConfig{}
-	mi := &file_proxy_onesocks_config_proto_msgTypes[1]
+	mi := &file_proxy_onesocks_config_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -99,7 +49,7 @@ func (x *ClientConfig) String() string {
 func (*ClientConfig) ProtoMessage() {}
 
 func (x *ClientConfig) ProtoReflect() protoreflect.Message {
-	mi := &file_proxy_onesocks_config_proto_msgTypes[1]
+	mi := &file_proxy_onesocks_config_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -112,7 +62,7 @@ func (x *ClientConfig) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ClientConfig.ProtoReflect.Descriptor instead.
 func (*ClientConfig) Descriptor() ([]byte, []int) {
-	return file_proxy_onesocks_config_proto_rawDescGZIP(), []int{1}
+	return file_proxy_onesocks_config_proto_rawDescGZIP(), []int{0}
 }
 
 func (x *ClientConfig) GetServer() []*protocol.ServerEndpoint {
@@ -122,11 +72,25 @@ func (x *ClientConfig) GetServer() []*protocol.ServerEndpoint {
 	return nil
 }
 
-func (x *ClientConfig) GetPaddingLen() string {
+func (x *ClientConfig) GetCipher() string {
+	if x != nil {
+		return x.Cipher
+	}
+	return ""
+}
+
+func (x *ClientConfig) GetPassword() string {
+	if x != nil {
+		return x.Password
+	}
+	return ""
+}
+
+func (x *ClientConfig) GetPaddingLen() uint32 {
 	if x != nil {
 		return x.PaddingLen
 	}
-	return ""
+	return 0
 }
 
 func (x *ClientConfig) GetUdp() bool {
@@ -150,23 +114,77 @@ func (x *ClientConfig) GetUotVersion() uint32 {
 	return 0
 }
 
+// OneSocks 用户认证配置
+type Account struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Cipher        string                 `protobuf:"bytes,1,opt,name=cipher,proto3" json:"cipher,omitempty"`
+	Password      string                 `protobuf:"bytes,2,opt,name=password,proto3" json:"password,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Account) Reset() {
+	*x = Account{}
+	mi := &file_proxy_onesocks_config_proto_msgTypes[1]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Account) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Account) ProtoMessage() {}
+
+func (x *Account) ProtoReflect() protoreflect.Message {
+	mi := &file_proxy_onesocks_config_proto_msgTypes[1]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Account.ProtoReflect.Descriptor instead.
+func (*Account) Descriptor() ([]byte, []int) {
+	return file_proxy_onesocks_config_proto_rawDescGZIP(), []int{1}
+}
+
+func (x *Account) GetCipher() string {
+	if x != nil {
+		return x.Cipher
+	}
+	return ""
+}
+
+func (x *Account) GetPassword() string {
+	if x != nil {
+		return x.Password
+	}
+	return ""
+}
+
 var File_proxy_onesocks_config_proto protoreflect.FileDescriptor
 
 const file_proxy_onesocks_config_proto_rawDesc = "" +
 	"\n" +
-	"\x1bproxy/onesocks/config.proto\x12\x1bexclave.core.proxy.onesocks\x1a!common/protocol/server_spec.proto\"=\n" +
-	"\aAccount\x12\x1a\n" +
-	"\bpassword\x18\x01 \x01(\tR\bpassword\x12\x16\n" +
-	"\x06cipher\x18\x02 \x01(\tR\x06cipher\"\xba\x01\n" +
+	"\x1bproxy/onesocks/config.proto\x12\x1bexclave.core.proxy.onesocks\x1a!common/protocol/server_spec.proto\"\xee\x01\n" +
 	"\fClientConfig\x12D\n" +
-	"\x06server\x18\x01 \x03(\v2,.exclave.core.common.protocol.ServerEndpointR\x06server\x12\x1f\n" +
-	"\vpadding_len\x18\x02 \x01(\tR\n" +
+	"\x06server\x18\x01 \x03(\v2,.exclave.core.common.protocol.ServerEndpointR\x06server\x12\x16\n" +
+	"\x06cipher\x18\x02 \x01(\tR\x06cipher\x12\x1a\n" +
+	"\bpassword\x18\x03 \x01(\tR\bpassword\x12\x1f\n" +
+	"\vpadding_len\x18\x04 \x01(\rR\n" +
 	"paddingLen\x12\x10\n" +
-	"\x03udp\x18\x03 \x01(\bR\x03udp\x12\x10\n" +
-	"\x03uot\x18\x04 \x01(\bR\x03uot\x12\x1f\n" +
-	"\vuot_version\x18\x05 \x01(\rR\n" +
-	"uotVersionB\x91\x01\n" +
-	"5com.github.exclavenetwork.exclave.core.proxy.onesocksP\x01Z8github.com/exclavenetwork/exclave-core/v5/proxy/onesocks\xaa\x02\x1bExclave.Core.Proxy.OneSocksb\x06proto3"
+	"\x03udp\x18\x05 \x01(\bR\x03udp\x12\x10\n" +
+	"\x03uot\x18\x06 \x01(\bR\x03uot\x12\x1f\n" +
+	"\vuot_version\x18\a \x01(\rR\n" +
+	"uotVersion\"=\n" +
+	"\aAccount\x12\x16\n" +
+	"\x06cipher\x18\x01 \x01(\tR\x06cipher\x12\x1a\n" +
+	"\bpassword\x18\x02 \x01(\tR\bpasswordB:Z8github.com/exclavenetwork/exclave-core/v5/proxy/onesocksb\x06proto3"
 
 var (
 	file_proxy_onesocks_config_proto_rawDescOnce sync.Once
@@ -182,8 +200,8 @@ func file_proxy_onesocks_config_proto_rawDescGZIP() []byte {
 
 var file_proxy_onesocks_config_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
 var file_proxy_onesocks_config_proto_goTypes = []any{
-	(*Account)(nil),                 // 0: exclave.core.proxy.onesocks.Account
-	(*ClientConfig)(nil),            // 1: exclave.core.proxy.onesocks.ClientConfig
+	(*ClientConfig)(nil),            // 0: exclave.core.proxy.onesocks.ClientConfig
+	(*Account)(nil),                 // 1: exclave.core.proxy.onesocks.Account
 	(*protocol.ServerEndpoint)(nil), // 2: exclave.core.common.protocol.ServerEndpoint
 }
 var file_proxy_onesocks_config_proto_depIdxs = []int32{
