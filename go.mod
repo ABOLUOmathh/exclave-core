@@ -9,7 +9,7 @@ require (
 	github.com/anytls/sing-anytls v0.0.13
 	github.com/apernet/quic-go v0.63.1-0.20261004180939-a10df75c260c
 	github.com/dgryski/go-camellia v0.0.0-20191119043421-69a8a13fb23d
-	github.com/enfein/mieru/v3 v3.38.0
+	github.com/enfein/mieru/v3 v3.38.2
 	github.com/exclavenetwork/hysteria/core/v2 v2.13.0-1
 	github.com/exclavenetwork/hysteria/extras/v2 v2.13.0-1
 	github.com/exclavenetwork/reality v0.0.0-20261008155612-cc902fba9d14
@@ -55,7 +55,7 @@ require (
 	github.com/gofrs/uuid/v5 v5.5.1 // indirect
 	github.com/google/btree v1.1.3 // indirect
 	github.com/hashicorp/yamux v0.1.2 // indirect
-	github.com/klauspost/compress v1.20.1 // indirect
+	github.com/klauspost/compress v1.20.3 // indirect
 	github.com/klauspost/cpuid/v2 v2.4.0 // indirect
 	github.com/lunixbochs/struc v0.0.0-20241101090106-8d528fa2c543 // indirect
 	github.com/metacubex/cpu v0.1.2 // indirect
