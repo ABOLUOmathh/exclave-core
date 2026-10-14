@@ -42,6 +42,7 @@ import (
 	_ "github.com/exclavenetwork/exclave-core/v5/proxy/dns"
 	_ "github.com/exclavenetwork/exclave-core/v5/proxy/dokodemo"
 	_ "github.com/exclavenetwork/exclave-core/v5/proxy/freedom"
+	_ "github.com/exclavenetwork/exclave-core/v5/proxy/heysocksxhttp"
 	_ "github.com/exclavenetwork/exclave-core/v5/proxy/http"
 	_ "github.com/exclavenetwork/exclave-core/v5/proxy/http3"
 	_ "github.com/exclavenetwork/exclave-core/v5/proxy/loopback"

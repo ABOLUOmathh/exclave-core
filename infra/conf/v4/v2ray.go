@@ -60,6 +60,7 @@ var (
 		"wireguard":        func() interface{} { return new(WireGuardClientConfig) },
 		"anytls":           func() interface{} { return new(AnyTLSClientConfig) },
 		"onesocks":         func() interface{} { return new(OneSocksClientConfig) },
+		"heysocks-xhttp":   func() interface{} { return new(HeySocksXHTTPClientConfig) },
 		"tuic":             func() interface{} { return new(TuicClientConfig) },
 		"juicity":          func() interface{} { return new(JuicityClientConfig) },
 		"mieru":            func() interface{} { return new(MieruClientConfig) },

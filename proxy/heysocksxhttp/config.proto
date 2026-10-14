@@ -1,0 +1,25 @@
+syntax = "proto3";
+
+package exclave.core.proxy.heysocksxhttp;
+
+option go_package = "github.com/exclavenetwork/exclave-core/v5/proxy/heysocksxhttp";
+
+import "common/protocol/server_spec.proto";
+
+// Outbound settings, matching the v4 JSON configuration layer.
+message ClientConfig {
+  repeated exclave.core.common.protocol.ServerEndpoint server = 1;
+  bool udp = 2;
+  bool uot = 3;
+  uint32 uot_version = 4;
+  string padding_len = 5; // Accepted for configuration compatibility; not used by xstream.
+  bool e = 6;             // Preserved compatibility flag; not consumed by xstream.
+  string h = 7;           // Unsupported; rejected by the JSON configuration loader.
+}
+
+message Account {
+  string cipher = 1;
+  string password = 2;
+  string fake_tcp = 3;
+  string fake_udp = 4;
+}
