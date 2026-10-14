@@ -2,6 +2,7 @@ package heysocksxhttp
 
 import (
 	"strings"
+	"sync"
 
 	"github.com/exclavenetwork/exclave-core/v5/common/protocol"
 	wire "github.com/exclavenetwork/exclave-core/v5/transport/heysocks/xhttp"
@@ -9,13 +10,18 @@ import (
 
 const DefaultCipher = "aes-128-ctr"
 
-// MemoryAccount is a runtime Exclave account; its wire cipher is recreated per
-// connection because HeySocks synchronizes session state on received frames.
+// MemoryAccount keeps a single stream cipher per server account. The cipher
+// synchronizes session blobs received from the peer, so sharing it across
+// connections preserves the current session, as in the HeySocks implementation.
 type MemoryAccount struct {
 	CipherName string
 	Password   string
 	FakeTCP    string
 	FakeUDP    string
+
+	cipherOnce sync.Once
+	cipher     *wire.StreamCipher
+	cipherErr  error
 }
 
 func (a *MemoryAccount) Equals(other protocol.Account) bool {
@@ -26,10 +32,13 @@ func (a *MemoryAccount) Equals(other protocol.Account) bool {
 }
 
 func (a *MemoryAccount) NewCipher() (*wire.StreamCipher, error) {
-	return wire.NewStreamCipher(a.CipherName, a.Password, map[string]string{
-		"tcp": a.FakeTCP,
-		"udp": a.FakeUDP,
+	a.cipherOnce.Do(func() {
+		a.cipher, a.cipherErr = wire.NewStreamCipher(a.CipherName, a.Password, map[string]string{
+			"tcp": a.FakeTCP,
+			"udp": a.FakeUDP,
+		})
 	})
+	return a.cipher, a.cipherErr
 }
 
 func (a *Account) AsAccount() (protocol.Account, error) {
