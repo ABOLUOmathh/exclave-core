@@ -2,6 +2,7 @@ package shadowsocks_2022 // nolint:stylecheck
 
 import (
 	"context"
+	gonet "net"
 	"strconv"
 
 	shadowsocks "github.com/sagernet/sing-shadowsocks2"
@@ -20,6 +21,7 @@ import (
 	"github.com/exclavenetwork/exclave-core/v5/proxy"
 	"github.com/exclavenetwork/exclave-core/v5/proxy/sip003"
 	"github.com/exclavenetwork/exclave-core/v5/transport"
+	"github.com/exclavenetwork/exclave-core/v5/transport/heysocks/ss2022"
 	"github.com/exclavenetwork/exclave-core/v5/transport/internet"
 )
 
@@ -37,9 +39,10 @@ var (
 )
 
 type Outbound struct {
-	ctx    context.Context
-	server net.Destination
-	method cipher.Method
+	ctx        context.Context
+	server     net.Destination
+	method     cipher.Method
+	blackstone *ss2022.Method
 
 	plugin         sip003.Plugin
 	pluginOverride net.Destination
@@ -65,11 +68,24 @@ func NewClient(ctx context.Context, config *ClientConfig) (*Outbound, error) {
 			Network: net.Network_TCP,
 		},
 	}
-	method, err := shadowaead_2022.NewMethod(ctx, config.Method, shadowsocks.MethodOptions{Password: config.Key})
+	// The exact BLACKSTONE suffix opts into the Mihomo-compatible wire format.
+	// Unmarked nodes retain the original Shadowsocks 2022 implementation.
+	normalizedKey, blackstone, err := ss2022.NormalizePassword(config.Method, config.Key)
 	if err != nil {
-		return nil, newError("create method").Base(err)
+		return nil, newError("normalize BLACKSTONE password").Base(err)
 	}
-	o.method = method
+	if blackstone {
+		o.blackstone, err = ss2022.New(config.Method, normalizedKey)
+		if err != nil {
+			return nil, newError("create BLACKSTONE method").Base(err)
+		}
+	} else {
+		method, err := shadowaead_2022.NewMethod(ctx, config.Method, shadowsocks.MethodOptions{Password: config.Key})
+		if err != nil {
+			return nil, newError("create method").Base(err)
+		}
+		o.method = method
+	}
 
 	if config.Plugin != "" {
 		var plugin sip003.Plugin
@@ -109,9 +125,20 @@ func NewClient(ctx context.Context, config *ClientConfig) (*Outbound, error) {
 
 	if config.Uot {
 		o.uotClient = &uot.Client{}
+		if o.blackstone != nil {
+			// Mihomo's BLACKSTONE SS2022 defaults to legacy UOT v1.
+			o.uotClient.Version = uot.LegacyVersion
+		}
 	}
 
 	return o, nil
+}
+
+func (o *Outbound) dialEarlyConn(conn gonet.Conn, destination M.Socksaddr) gonet.Conn {
+	if o.blackstone != nil {
+		return o.blackstone.DialEarlyConn(conn, destination)
+	}
+	return o.method.DialEarlyConn(conn, destination)
 }
 
 func (o *Outbound) Process(ctx context.Context, link *transport.Link, dialer internet.Dialer) error {
@@ -121,6 +148,9 @@ func (o *Outbound) Process(ctx context.Context, link *transport.Link, dialer int
 	}
 	destination := outbound.Target
 	network := destination.Network
+	if o.blackstone != nil && network == net.Network_UDP && o.uotClient == nil {
+		return newError("BLACKSTONE SS2022 native UDP is not supported; enable UOT v1")
+	}
 
 	newError("tunneling request to ", destination, " via ", o.server.NetAddr()).WriteToLog(session.ExportIDToError(ctx))
 
@@ -145,7 +175,7 @@ func (o *Outbound) Process(ctx context.Context, link *transport.Link, dialer int
 		if o.streamPlugin != nil {
 			connection = o.streamPlugin.StreamConn(connection)
 		}
-		serverConn := o.method.DialEarlyConn(connection, singbridge.ToSocksAddr(destination))
+		serverConn := o.dialEarlyConn(connection, singbridge.ToSocksAddr(destination))
 		var handshake bool
 		if timeoutReader, isTimeoutReader := link.Reader.(buf.TimeoutReader); isTimeoutReader {
 			mb, err := timeoutReader.ReadMultiBufferTimeout(proxy.FirstPayloadTimeout)
@@ -181,7 +211,8 @@ func (o *Outbound) Process(ctx context.Context, link *transport.Link, dialer int
 		return singbridge.ReturnError(bufio.CopyConn(ctx, singbridge.NewPipeConnWrapper(link), serverConn))
 	} else {
 		if o.uotClient != nil {
-			serverConn := o.method.DialEarlyConn(connection, M.Socksaddr{Fqdn: uot.MagicAddress})
+			uotDestination := uot.RequestDestination(o.uotClient.Version)
+			serverConn := o.dialEarlyConn(connection, uotDestination)
 			uotConn, err := o.uotClient.DialEarlyConn(serverConn, false, singbridge.ToSocksAddr(destination))
 			if err != nil {
 				serverConn.Close()
