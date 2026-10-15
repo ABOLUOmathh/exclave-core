@@ -287,7 +287,7 @@ func (c *Client) setupHTTPTunnel(ctx context.Context, dest net.Destination, targ
 				resp.Body.Close()
 				return nil, nil, newError("Proxy responded with non 101 code: " + resp.Status)
 			}
-			if resp.Header.Get("Connection") != "Upgrade" {
+			if !strings.EqualFold(resp.Header.Get("Connection"), "Upgrade") {
 				resp.Body.Close()
 				return nil, nil, newError("invalid response \"Connection\" header")
 			}
