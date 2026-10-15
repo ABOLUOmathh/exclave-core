@@ -325,11 +325,11 @@ func (c *Client) setupHTTPTunnel(ctx context.Context, target net.Destination, di
 			clientConn.CloseWithError(0, "")
 			return nil, pErr
 		}
-		if resp.StatusCode != http.StatusOK {
+		if resp.StatusCode < 200 || resp.StatusCode > 299 {
 			resp.Body.Close()
 			stream.CancelRead(0)
 			stream.Close()
-			return nil, newError("Proxy responded with non 200 code: " + resp.Status)
+			return nil, newError("Proxy responded with non 2xx code: " + resp.Status)
 		}
 		return &http3Conn{
 			stream: stream,
@@ -348,11 +348,11 @@ func (c *Client) setupHTTPTunnel(ctx context.Context, target net.Destination, di
 			stream.Close()
 			return nil, err
 		}
-		if resp.StatusCode != http.StatusOK {
+		if resp.StatusCode < 200 || resp.StatusCode > 299 {
 			resp.Body.Close()
 			stream.CancelRead(0)
 			stream.Close()
-			return nil, newError("Proxy responded with non 200 code: " + resp.Status)
+			return nil, newError("Proxy responded with non 2xx code: " + resp.Status)
 		}
 		if clientConn.Settings().EnableDatagrams {
 			return &http3PacketConn{
