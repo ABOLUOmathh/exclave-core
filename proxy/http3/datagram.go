@@ -22,6 +22,7 @@ func newDatagramReader(conn net.Conn) *datagramReader {
 
 func (r *datagramReader) ReadMultiBuffer() (buf.MultiBuffer, error) {
 	b := buf.New()
+start:
 	b.Resize(0, buf.Size)
 	n, err := r.conn.Read(b.Bytes())
 	if err != nil {
@@ -29,18 +30,13 @@ func (r *datagramReader) ReadMultiBuffer() (buf.MultiBuffer, error) {
 		return nil, err
 	}
 	b.Resize(0, int32(n))
-	if n < 1 {
-		b.Release()
-		return nil, newError("invalid payload length")
-	}
-	first, err := b.ReadByte()
+	contextID, _, err := readVarint(b)
 	if err != nil {
 		b.Release()
 		return nil, err
 	}
-	if first != 0x00 {
-		b.Release()
-		return nil, newError("invalid context id")
+	if contextID != 0x00 {
+		goto start
 	}
 	return buf.MultiBuffer{b}, nil
 }
