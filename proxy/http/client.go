@@ -278,14 +278,14 @@ func (c *Client) setupHTTPTunnel(ctx context.Context, dest net.Destination, targ
 		}
 
 		if target.Network == net.Network_TCP {
-			if resp.StatusCode != http.StatusOK {
+			if resp.StatusCode < 200 || resp.StatusCode > 299 {
 				resp.Body.Close()
-				return nil, nil, newError("Proxy responded with non 200 code: " + resp.Status)
+				return nil, nil, newError("Proxy responded with non 2xx code: " + resp.Status)
 			}
 		} else {
 			if resp.StatusCode != http.StatusSwitchingProtocols {
 				resp.Body.Close()
-				return nil, nil, newError("Proxy responded with non 200 code: " + resp.Status)
+				return nil, nil, newError("Proxy responded with non 101 code: " + resp.Status)
 			}
 			if resp.Header.Get("Connection") != "Upgrade" {
 				resp.Body.Close()
@@ -388,9 +388,9 @@ func (c *Client) setupHTTPTunnel(ctx context.Context, dest net.Destination, targ
 			return nil, pErr
 		}
 
-		if resp.StatusCode != http.StatusOK {
+		if resp.StatusCode < 200 || resp.StatusCode > 299 {
 			resp.Body.Close()
-			return nil, newError("Proxy responded with non 200 code: " + resp.Status)
+			return nil, newError("Proxy responded with non 2xx code: " + resp.Status)
 		}
 		return newHTTP2Conn(pw, resp.Body), nil
 	}
