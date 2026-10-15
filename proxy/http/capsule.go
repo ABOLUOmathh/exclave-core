@@ -38,30 +38,39 @@ func newUoTReader(conn net.Conn) *uotReader {
 }
 
 func (r *uotReader) ReadMultiBuffer() (buf.MultiBuffer, error) {
-	capsuleType, _, err := r.readVarint()
+start:
+	capsuleType, _, err := readVarint(r.conn)
 	if err != nil {
 		return nil, err
 	}
-	if capsuleType != 0 {
-		return nil, newError("unknown capsule type")
-	}
-	capsuleLength, _, err := r.readVarint()
+	capsuleLength, _, err := readVarint(r.conn)
 	if err != nil {
 		return nil, err
 	}
 	if capsuleLength > math.MaxInt32 {
 		return nil, newError("invalid capsule length")
 	}
-	contextID, contextIDLength, err := r.readVarint()
+	if capsuleType != 0 {
+		_, err = io.CopyN(io.Discard, r.conn, int64(capsuleLength))
+		if err != nil {
+			return nil, err
+		}
+		goto start
+	}
+	contextID, contextIDLength, err := readVarint(r.conn)
 	if err != nil {
 		return nil, err
-	}
-	if contextID != 0 {
-		return nil, newError("invalid context id")
 	}
 	payloadLength := int32(capsuleLength) - int32(contextIDLength)
 	if payloadLength < 0 {
 		return nil, newError("invalid payload length")
+	}
+	if contextID != 0 {
+		_, err = io.CopyN(io.Discard, r.conn, int64(payloadLength))
+		if err != nil {
+			return nil, err
+		}
+		goto start
 	}
 	b := buf.NewWithSize(payloadLength)
 	if _, err = b.ReadFullFrom(r.conn, payloadLength); err != nil {
@@ -71,16 +80,16 @@ func (r *uotReader) ReadMultiBuffer() (buf.MultiBuffer, error) {
 	return buf.MultiBuffer{b}, nil
 }
 
-func (r *uotReader) readVarint() (uint64, int, error) {
+func readVarint(reader io.Reader) (uint64, int, error) {
 	var b [1]byte
-	_, err := io.ReadFull(r.conn, b[:])
+	_, err := io.ReadFull(reader, b[:])
 	if err != nil {
 		return 0, 0, err
 	}
 	length := 1 << (b[0] >> 6)
 	value := uint64(b[0] & 0x3f)
 	for i := 1; i < length; i++ {
-		_, err = io.ReadFull(r.conn, b[:])
+		_, err = io.ReadFull(reader, b[:])
 		if err != nil {
 			return 0, 0, err
 		}
