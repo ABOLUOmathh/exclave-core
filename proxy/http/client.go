@@ -168,19 +168,32 @@ func (c *Client) Process(ctx context.Context, link *transport.Link, dialer inter
 	ctx, cancel := context.WithCancel(ctx)
 	timer := signal.CancelAfterInactivity(ctx, cancel, p.Timeouts.ConnectionIdle)
 
+	var writer buf.Writer
+	var reader buf.Reader
+	if target.Network == net.Network_TCP {
+		writer = buf.NewWriter(conn)
+		reader = buf.NewReader(conn)
+	} else {
+		readerWriter := newUoTReaderWriter(conn, target, func(dest net.Destination) (net.Conn, error) {
+			conn, _, err := c.setupHTTPTunnel(ctx, server.Destination(), dest, user, dialer, nil, false)
+			if err != nil {
+				return nil, err
+			}
+			newError("tunneling request to ", dest, " via ", server.Destination().NetAddr()).WriteToLog(session.ExportIDToError(ctx))
+			return conn, nil
+		})
+		defer readerWriter.close()
+		writer = readerWriter
+		reader = readerWriter
+	}
+
 	requestFunc := func() error {
 		defer timer.SetTimeout(p.Timeouts.DownlinkOnly)
-		if target.Network == net.Network_UDP {
-			return buf.Copy(link.Reader, newUoTWriter(conn, target), buf.UpdateActivity(timer))
-		}
-		return buf.Copy(link.Reader, buf.NewWriter(conn), buf.UpdateActivity(timer))
+		return buf.Copy(link.Reader, writer, buf.UpdateActivity(timer))
 	}
 	responseFunc := func() error {
 		defer timer.SetTimeout(p.Timeouts.UplinkOnly)
-		if target.Network == net.Network_UDP {
-			return buf.Copy(newUoTReader(conn), link.Writer, buf.UpdateActivity(timer))
-		}
-		return buf.Copy(buf.NewReader(conn), link.Writer, buf.UpdateActivity(timer))
+		return buf.Copy(reader, link.Writer, buf.UpdateActivity(timer))
 	}
 
 	responseDonePost := task.OnSuccess(responseFunc, task.Close(link.Writer))
