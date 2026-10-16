@@ -57,6 +57,47 @@ func TestVLessOutbound(t *testing.T) {
 				},
 			},
 		},
+		{
+			Input: `{
+				"vnext": [{
+					"address": "vless.heysocks.com",
+					"port": 443,
+					"users": [
+						{
+							"id": "f355229a-2465-01c6-b3cf-735aecd2df9c",
+							"flow": "xtls-rprx-vision",
+							"encryption": "none",
+							"e": 1,
+							"h": "3148b91dcbdd22fe2ccab2e1fb375a0e"
+						}
+					]
+				}]
+			}`,
+			Parser: testassist.LoadJSON(creator),
+			Output: &outbound.Config{
+				Vnext: []*protocol.ServerEndpoint{
+					{
+						Address: &net.IPOrDomain{
+							Address: &net.IPOrDomain_Domain{
+								Domain: "vless.heysocks.com",
+							},
+						},
+						Port: 443,
+						User: []*protocol.User{
+							{
+								Account: serial.ToTypedMessage(&vless.Account{
+									Id:         "f355229a-2465-01c6-b3cf-735aecd2df9c",
+									Flow:       "xtls-rprx-vision",
+									Encryption: "none",
+									E:          true,
+									H:          "3148b91dcbdd22fe2ccab2e1fb375a0e",
+								}),
+							},
+						},
+					},
+				},
+			},
+		},
 	})
 }
 

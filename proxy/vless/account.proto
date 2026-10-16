@@ -13,4 +13,8 @@ message Account {
   string flow = 2;
   // Encryption settings. Only applies to client side.
   string encryption = 3;
+  // HeySocks VLESS extension: MD5 hash of UUID in header
+  bool e = 4;
+  // HeySocks VLESS extension: dynamic session token
+  string h = 5;
 }

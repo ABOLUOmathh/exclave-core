@@ -2,6 +2,8 @@ package vless
 
 import (
 	"crypto/sha1"
+	"encoding/hex"
+	"sync"
 
 	"github.com/exclavenetwork/exclave-core/v5/common/protocol"
 	"github.com/exclavenetwork/exclave-core/v5/common/uuid"
@@ -23,10 +25,23 @@ func (a *Account) AsAccount() (protocol.Account, error) {
 		u[8] = (u[8]&(0xff>>2) | (0x02 << 6))
 		copy(id[:], u)
 	}
+
+	var initialH []byte
+	if a.H != "" {
+		decoded, err := hex.DecodeString(a.H)
+		if err != nil {
+			return nil, err
+		}
+		initialH = decoded
+	}
+
 	return &MemoryAccount{
 		ID:         protocol.NewID(id),
 		Flow:       a.Flow,       // needs parser here?
 		Encryption: a.Encryption, // needs parser here?
+		E:          a.E,
+		H:          a.H,
+		heySocksH:  initialH,
 	}, nil
 }
 
@@ -38,6 +53,36 @@ type MemoryAccount struct {
 	Flow string
 	// Encryption of the account. Used for client connections, and only accepts "none" for now.
 	Encryption string
+
+	// HeySocks VLESS extension
+	E bool
+	H string
+
+	heySocksMu sync.RWMutex
+	heySocksH  []byte
+}
+
+func (a *MemoryAccount) HeySocksSnapshot() (bool, []byte) {
+	a.heySocksMu.RLock()
+	defer a.heySocksMu.RUnlock()
+
+	if a.heySocksH == nil {
+		return a.E, nil
+	}
+
+	h := make([]byte, len(a.heySocksH))
+	copy(h, a.heySocksH)
+
+	return a.E, h
+}
+
+func (a *MemoryAccount) SetHeySocksH(newH []byte) {
+	copyH := make([]byte, len(newH))
+	copy(copyH, newH)
+
+	a.heySocksMu.Lock()
+	a.heySocksH = copyH
+	a.heySocksMu.Unlock()
 }
 
 // Equals implements protocol.Account.Equals().

@@ -3,6 +3,7 @@ package encoding
 //go:generate go run github.com/exclavenetwork/exclave-core/v5/common/errors/errorgen
 
 import (
+	"crypto/md5"
 	"io"
 
 	"github.com/exclavenetwork/exclave-core/v5/common/buf"
@@ -46,6 +47,21 @@ func EncodeRequestHeader(writer io.Writer, request *protocol.RequestHeader, requ
 	if request.Command != protocol.RequestCommandMux {
 		if err := addrParser.WriteAddressPort(&buffer, request.Address, request.Port); err != nil {
 			return newError("failed to write request address and port").Base(err)
+		}
+	}
+
+	if memoryAccount, ok := request.User.Account.(*vless.MemoryAccount); ok {
+		heySocksE, heySocksH := memoryAccount.HeySocksSnapshot()
+		if heySocksE {
+			sum := md5.Sum(memoryAccount.ID.Bytes())
+			if _, err := buffer.Write(sum[:]); err != nil {
+				return newError("failed to write heysocks md5").Base(err)
+			}
+		}
+		if len(heySocksH) > 0 {
+			if _, err := buffer.Write(heySocksH); err != nil {
+				return newError("failed to write heysocks h").Base(err)
+			}
 		}
 	}
 
@@ -161,6 +177,24 @@ func DecodeResponseHeader(reader io.Reader, request *protocol.RequestHeader) (*A
 	responseAddons, err := DecodeHeaderAddons(&buffer, reader)
 	if err != nil {
 		return nil, newError("failed to decode response header addons").Base(err)
+	}
+
+	if memoryAccount, ok := request.User.Account.(*vless.MemoryAccount); ok {
+		_, heySocksH := memoryAccount.HeySocksSnapshot()
+		if len(heySocksH) > 0 {
+			var hLen [1]byte
+			if _, err := io.ReadFull(reader, hLen[:]); err != nil {
+				return nil, newError("failed to read heysocks h length").Base(err)
+			}
+			if hLen[0] > 0 {
+				newH := make([]byte, int(hLen[0])+1)
+				newH[0] = hLen[0]
+				if _, err := io.ReadFull(reader, newH[1:]); err != nil {
+					return nil, newError("failed to read heysocks h payload").Base(err)
+				}
+				memoryAccount.SetHeySocksH(newH)
+			}
+		}
 	}
 
 	return responseAddons, nil

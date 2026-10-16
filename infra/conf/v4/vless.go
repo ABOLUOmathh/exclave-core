@@ -155,9 +155,36 @@ func (c *VLessOutboundConfig) Build() (proto.Message, error) {
 			if err := json.Unmarshal(rawUser, user); err != nil {
 				return nil, newError(`VLESS users: invalid user`).Base(err)
 			}
-			account := new(vless.Account)
-			if err := json.Unmarshal(rawUser, account); err != nil {
+
+			var rawHelper struct {
+				Id         string          `json:"id"`
+				Flow       string          `json:"flow"`
+				Encryption string          `json:"encryption"`
+				E          json.RawMessage `json:"e"`
+				H          string          `json:"h"`
+			}
+			if err := json.Unmarshal(rawUser, &rawHelper); err != nil {
 				return nil, newError(`VLESS users: invalid user`).Base(err)
+			}
+
+			account := &vless.Account{
+				Id:         rawHelper.Id,
+				Flow:       rawHelper.Flow,
+				Encryption: rawHelper.Encryption,
+				H:          rawHelper.H,
+			}
+			if len(rawHelper.E) > 0 {
+				var boolVal bool
+				var intVal int
+				var strVal string
+				if err := json.Unmarshal(rawHelper.E, &boolVal); err == nil {
+					account.E = boolVal
+				} else if err := json.Unmarshal(rawHelper.E, &intVal); err == nil {
+					account.E = (intVal == 1)
+				} else if err := json.Unmarshal(rawHelper.E, &strVal); err == nil {
+					s := strings.ToLower(strings.TrimSpace(strVal))
+					account.E = (s == "1" || s == "true")
+				}
 			}
 
 			user.Account = serial.ToTypedMessage(account)
