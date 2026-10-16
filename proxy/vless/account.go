@@ -93,3 +93,12 @@ func (a *MemoryAccount) Equals(account protocol.Account) bool {
 	}
 	return a.ID.Equals(vlessAccount.ID)
 }
+
+// Equal implements equality comparison for cmp.Diff.
+func (a *MemoryAccount) Equal(other *MemoryAccount) bool {
+	if a == nil || other == nil {
+		return a == other
+	}
+	return a.Equals(other)
+}
+
