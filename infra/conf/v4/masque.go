@@ -16,7 +16,7 @@ type MASQUEClientConfig struct {
 	Password       *string            `json:"password"`
 	Headers        map[string]string  `json:"headers"`
 	URITemplate    string             `json:"uriTemplate"`
-	HTTP3          bool               `json:"http3"`
+	Version        int32              `json:"version"`
 	MTU            int32              `json:"mtu"`
 	DomainStrategy string             `json:"domainStrategy"`
 }
@@ -32,7 +32,7 @@ func (c *MASQUEClientConfig) Build() (proto.Message, error) {
 		Password:    c.Password,
 		Headers:     c.Headers,
 		UriTemplate: c.URITemplate,
-		Http3:       c.HTTP3,
+		Version:     c.Version,
 		Mtu:         c.MTU,
 	}
 	switch strings.ToLower(c.DomainStrategy) {

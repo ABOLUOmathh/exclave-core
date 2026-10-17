@@ -44,6 +44,35 @@ func NewRequest(ctx context.Context, proxyTemplate *uritemplate.Template) (*Requ
 	return &Request{req: req}, nil
 }
 
+func NewHTTP2Request(ctx context.Context, proxyTemplate *uritemplate.Template) (*Request, error) {
+	if len(proxyTemplate.Varnames()) > 0 {
+		return nil, errors.New("connect-ip: IP flow forwarding not supported")
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodConnect, proxyTemplate.Raw(), nil)
+	if err != nil {
+		return nil, fmt.Errorf("connect-ip: failed to create request: %w", err)
+	}
+	req.Header.Set(":protocol", requestProtocol)
+	req.Host = req.URL.Host
+	req.Header.Set(http3.CapsuleProtocolHeader, capsuleProtocolHeaderValue)
+	return &Request{req: req}, nil
+}
+
+func NewHTTP1Request(ctx context.Context, proxyTemplate *uritemplate.Template) (*Request, error) {
+	if len(proxyTemplate.Varnames()) > 0 {
+		return nil, errors.New("connect-ip: IP flow forwarding not supported")
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, proxyTemplate.Raw(), nil)
+	if err != nil {
+		return nil, fmt.Errorf("connect-ip: failed to create request: %w", err)
+	}
+	req.Header.Set("Connection", "Upgrade")
+	req.Header.Set("Upgrade", requestProtocol)
+	req.Host = req.URL.Host
+	req.Header.Set(http3.CapsuleProtocolHeader, capsuleProtocolHeaderValue)
+	return &Request{req: req}, nil
+}
+
 func (r *Request) Header() http.Header {
 	return r.req.Header
 }

@@ -90,11 +90,14 @@ func (c *Client) InterfaceUpdate() {
 }
 
 func NewClient(ctx context.Context, config *ClientConfig) (*Client, error) {
+	if config.Version < 1 || config.Version > 3 {
+		return nil, newError("invalid http version")
+	}
 	serverAddr := net.Destination{
 		Address: config.Address.AsAddress(),
 		Port:    net.Port(config.Port),
 	}
-	if config.Http3 {
+	if config.Version == 3 {
 		serverAddr.Network = net.Network_UDP
 	} else {
 		serverAddr.Network = net.Network_TCP
@@ -110,9 +113,10 @@ func NewClient(ctx context.Context, config *ClientConfig) (*Client, error) {
 	if c.mtu == 0 {
 		c.mtu = 1350
 	}
-	if config.Http3 {
+	switch config.Version {
+	case 3:
 		c.h3Transport = &http3.Transport{EnableDatagrams: true}
-	} else {
+	case 2:
 		c.h2Transport = &http2.Transport{ReadIdleTimeout: time.Second * 15}
 	}
 	if len(config.UriTemplate) == 0 {
@@ -252,10 +256,13 @@ func (c *Client) getTunnel(ctx context.Context, dialer internet.Dialer) (*tunnel
 		resp *http.Response
 		err  error
 	)
-	if c.config.Http3 {
+	switch c.config.Version {
+	case 3:
 		conn, resp, err = c.dialH3(ctx, dialer) // nolint: bodyclose
-	} else {
+	case 2:
 		conn, resp, err = c.dialH2(ctx, dialer) // nolint: bodyclose
+	case 1:
+		conn, resp, err = c.dialH1(ctx, dialer) // nolint: bodyclose
 	}
 	if err != nil {
 		return nil, err
@@ -309,6 +316,54 @@ func (c *Client) getTunnel(ctx context.Context, dialer internet.Dialer) (*tunnel
 	go tunnel.serveAddressRequests(ctx, connectipConn)
 	go c.serveAddressAssignments(ctx, connectipConn, tunnel, localAddresses)
 	return tunnel, nil
+}
+
+func (c *Client) dialH1(ctx context.Context, dialer internet.Dialer) (*connectip.Conn, *http.Response, error) {
+	handler, ok := dialer.(*outbound.Handler)
+	if !ok {
+		panic("dialer is not *outbound.Handler")
+	}
+	if handler.MuxEnabled() {
+		return nil, nil, newError("mux enabled")
+	}
+	if handler.TransportLayerEnabled() {
+		return nil, nil, newError("transport layer enabled")
+	}
+	// FIXME: default ALPN should be "http/1.1" only
+	rawConn, err := dialer.Dial(ctx, c.serverAddr)
+	if err != nil {
+		return nil, nil, err
+	}
+	template := c.template
+	iConn := rawConn
+	if statConn, ok := iConn.(*internet.StatCouterConnection); ok {
+		iConn = statConn.Connection
+	}
+	if _, ok := iConn.(security.ConnectionApplicationProtocol); !ok && len(c.config.UriTemplate) == 0 {
+		template, err = uritemplate.New((&url.URL{
+			Scheme: "http",
+			Host:   c.serverAddr.NetAddr(),
+			Path:   "/.well-known/masque/ip/*/*/",
+		}).String())
+		if err != nil {
+			return nil, nil, err
+		}
+	}
+	req, err := connectip.NewHTTP1Request(ctx, template)
+	if err != nil {
+		return nil, nil, err
+	}
+	if c.config.Username != nil || c.config.Password != nil {
+		req.Header().Set("Authorization", "Basic "+base64.StdEncoding.EncodeToString([]byte(c.config.GetUsername()+":"+c.config.GetPassword())))
+	}
+	for key, value := range c.config.GetHeaders() {
+		req.Header().Set(key, value)
+	}
+	conn, resp, err := connectip.NewHTTP1ClientConn(rawConn).Dial(req) // nolint: bodyclose
+	if err != nil {
+		return nil, nil, err
+	}
+	return conn, resp, nil
 }
 
 func (c *Client) dialH2(ctx context.Context, dialer internet.Dialer) (*connectip.Conn, *http.Response, error) {
@@ -365,7 +420,7 @@ func (c *Client) dialH2(ctx context.Context, dialer internet.Dialer) (*connectip
 		c.h2ClientConn = h2ClientConn
 		c.clientConnLock.Unlock()
 	}
-	req, err := connectip.NewRequest(ctx, c.template)
+	req, err := connectip.NewHTTP2Request(ctx, c.template)
 	if err != nil {
 		return nil, nil, err
 	}
