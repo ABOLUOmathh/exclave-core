@@ -380,7 +380,6 @@ func (c *Client) dialH2(ctx context.Context, dialer internet.Dialer) (*connectip
 		c.clientConnLock.Lock()
 		c.h2ClientConn = nil
 		c.clientConnLock.Unlock()
-		resp.Body.Close()
 		h2ClientConn.Close()
 		return nil, nil, err
 	}
@@ -464,7 +463,6 @@ func (c *Client) dialH3(ctx context.Context, dialer internet.Dialer) (*connectip
 		c.clientConnLock.Lock()
 		c.h3ClientConn = nil
 		c.clientConnLock.Unlock()
-		resp.Body.Close()
 		h3ClientConn.CloseWithError(0, "")
 		return nil, nil, err
 	}
