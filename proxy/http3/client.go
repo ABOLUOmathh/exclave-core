@@ -54,11 +54,12 @@ func (c *Client) InterfaceUpdate() {
 
 func (c *Client) Close() error {
 	c.cachedConnMutex.Lock()
-	if c.cachedConn != nil {
-		c.cachedConn.CloseWithError(0, "")
-		c.cachedConn = nil
-	}
+	cachedConn := c.cachedConn
+	c.cachedConn = nil
 	c.cachedConnMutex.Unlock()
+	if cachedConn != nil {
+		cachedConn.CloseWithError(0, "")
+	}
 	return nil
 }
 

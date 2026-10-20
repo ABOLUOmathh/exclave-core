@@ -67,21 +67,24 @@ func (c *Client) Close() error {
 	c.ctx, c.cancel = context.WithCancel(context.Background())
 	c.ctxLock.Unlock()
 	c.tunnelLock.Lock()
-	if c.tunnel != nil {
-		c.tunnel.close()
-		c.tunnel = nil
-	}
+	tunnel := c.tunnel
+	c.tunnel = nil
 	c.tunnelLock.Unlock()
 	c.clientConnLock.Lock()
-	if c.h2ClientConn != nil {
-		c.h2ClientConn.Close()
-		c.h2ClientConn = nil
-	}
-	if c.h3ClientConn != nil {
-		c.h3ClientConn.CloseWithError(0, "")
-		c.h3ClientConn = nil
-	}
+	h2ClientConn := c.h2ClientConn
+	c.h2ClientConn = nil
+	h3ClientConn := c.h3ClientConn
+	c.h3ClientConn = nil
 	c.clientConnLock.Unlock()
+	if tunnel != nil {
+		tunnel.close()
+	}
+	if h2ClientConn != nil {
+		h2ClientConn.Close()
+	}
+	if h3ClientConn != nil {
+		h3ClientConn.CloseWithError(0, "")
+	}
 	return nil
 }
 

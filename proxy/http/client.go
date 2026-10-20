@@ -7,6 +7,7 @@ import (
 	"context"
 	"encoding/base64"
 	"io"
+	"maps"
 	"net/http"
 	"net/url"
 	"strings"
@@ -55,14 +56,15 @@ func (c *Client) InterfaceUpdate() {
 
 func (c *Client) Close() error {
 	c.cachedH2Mutex.Lock()
-	for _, cachedH2Conn := range c.cachedH2Conns {
+	cachedH2Conns := maps.Values(c.cachedH2Conns)
+	clear(c.cachedH2Conns)
+	c.cachedH2Mutex.Unlock()
+	for cachedH2Conn := range cachedH2Conns {
 		for elem := cachedH2Conn.Front(); elem != nil; elem = elem.Next() {
 			_ = elem.Value.(*http2ClientConn).Close()
 			cachedH2Conn.Remove(elem)
 		}
 	}
-	clear(c.cachedH2Conns)
-	c.cachedH2Mutex.Unlock()
 	return nil
 }
 

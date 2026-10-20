@@ -190,11 +190,11 @@ func (o *Outbound) InterfaceUpdate() {
 
 func (o *Outbound) Close() error {
 	o.clientAccess.Lock()
-	if o.client != nil {
-		client := o.client
-		go client.Stop() // blocking call
-		o.client = nil
-	}
+	client := o.client
+	o.client = nil
 	o.clientAccess.Unlock()
+	if client != nil {
+		go client.Stop() // blocking call
+	}
 	return nil
 }
