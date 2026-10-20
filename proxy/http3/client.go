@@ -224,21 +224,25 @@ func (c *Client) setupHTTPTunnel(ctx context.Context, target net.Destination, di
 			c.cachedConnMutex.Lock()
 			c.cachedConn = nil
 			c.cachedConnMutex.Unlock()
+			clientConn = nil
 		default:
 		}
 	}
 	if clientConn == nil {
 		tlsCfg, err := tlsSettings.GetTLSConfigWithContext(detachedContext, v2tls.WithNextProto("h3"), v2tls.WithDestination(c.serverAddress))
 		if err != nil {
+			c.createLock.Unlock()
 			return nil, err
 		}
 		rawConn, err := dialer.Dial(detachedContext, c.serverAddress)
 		if err != nil {
+			c.createLock.Unlock()
 			return nil, err
 		}
 		quicConn, err := quic.Dial(detachedContext, newQUICPacketConn(rawConn), rawConn.RemoteAddr(), tlsCfg, c.quicConfig)
 		if err != nil {
 			rawConn.Close()
+			c.createLock.Unlock()
 			return nil, err
 		}
 		clientConn = c.transport.NewClientConn(quicConn)
