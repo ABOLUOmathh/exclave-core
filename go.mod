@@ -21,7 +21,7 @@ require (
 	github.com/gorilla/websocket v1.5.3
 	github.com/miekg/dns v1.1.73
 	github.com/pires/go-proxyproto v0.15.0
-	github.com/quic-go/quic-go v0.64.0
+	github.com/quic-go/quic-go v0.64.1
 	github.com/refraction-networking/utls v1.8.3-0.20260924070827-6af385813fd8
 	github.com/sagernet/sing v0.9.6
 	github.com/sagernet/sing-mux v0.3.9
