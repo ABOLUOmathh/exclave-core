@@ -170,7 +170,7 @@ func (c *Client) Process(ctx context.Context, link *transport.Link, dialer inter
 
 	newError("tunneling request to ", dest, " via ", c.serverAddr.NetAddr()).WriteToLog(session.ExportIDToError(ctx))
 
-	sessionPolicy := c.policyManager.ForLevel(0)
+	sessionPolicy := c.policyManager.ForLevel(c.config.Level)
 	ctx, cancel := context.WithCancel(ctx)
 	timer := signal.CancelAfterInactivity(ctx, cancel, sessionPolicy.Timeouts.ConnectionIdle)
 

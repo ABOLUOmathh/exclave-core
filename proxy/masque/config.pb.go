@@ -76,6 +76,7 @@ type ClientConfig struct {
 	state          protoimpl.MessageState      `protogen:"open.v1"`
 	Address        *net.IPOrDomain             `protobuf:"bytes,1,opt,name=address,proto3" json:"address,omitempty"`
 	Port           uint32                      `protobuf:"varint,2,opt,name=port,proto3" json:"port,omitempty"`
+	Level          uint32                      `protobuf:"varint,10,opt,name=level,proto3" json:"level,omitempty"`
 	Username       *string                     `protobuf:"bytes,3,opt,name=username,proto3,oneof" json:"username,omitempty"`
 	Password       *string                     `protobuf:"bytes,4,opt,name=password,proto3,oneof" json:"password,omitempty"`
 	Headers        map[string]string           `protobuf:"bytes,5,rep,name=headers,proto3" json:"headers,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
@@ -127,6 +128,13 @@ func (x *ClientConfig) GetAddress() *net.IPOrDomain {
 func (x *ClientConfig) GetPort() uint32 {
 	if x != nil {
 		return x.Port
+	}
+	return 0
+}
+
+func (x *ClientConfig) GetLevel() uint32 {
+	if x != nil {
+		return x.Level
 	}
 	return 0
 }
@@ -184,10 +192,12 @@ var File_proxy_masque_config_proto protoreflect.FileDescriptor
 
 const file_proxy_masque_config_proto_rawDesc = "" +
 	"\n" +
-	"\x19proxy/masque/config.proto\x12\x19exclave.core.proxy.masque\x1a\x18common/net/address.proto\x1a common/protoext/extensions.proto\"\xe9\x04\n" +
+	"\x19proxy/masque/config.proto\x12\x19exclave.core.proxy.masque\x1a\x18common/net/address.proto\x1a common/protoext/extensions.proto\"\xff\x04\n" +
 	"\fClientConfig\x12=\n" +
 	"\aaddress\x18\x01 \x01(\v2#.exclave.core.common.net.IPOrDomainR\aaddress\x12\x12\n" +
-	"\x04port\x18\x02 \x01(\rR\x04port\x12\x1f\n" +
+	"\x04port\x18\x02 \x01(\rR\x04port\x12\x14\n" +
+	"\x05level\x18\n" +
+	" \x01(\rR\x05level\x12\x1f\n" +
 	"\busername\x18\x03 \x01(\tH\x00R\busername\x88\x01\x01\x12\x1f\n" +
 	"\bpassword\x18\x04 \x01(\tH\x01R\bpassword\x88\x01\x01\x12N\n" +
 	"\aheaders\x18\x05 \x03(\v24.exclave.core.proxy.masque.ClientConfig.HeadersEntryR\aheaders\x12!\n" +
