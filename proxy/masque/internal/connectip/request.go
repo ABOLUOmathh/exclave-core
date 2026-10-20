@@ -48,7 +48,6 @@ func NewHTTP2Request(ctx context.Context, u *url.URL) (*Request, error) {
 		Header: make(http.Header),
 	}
 	req.Header.Set(":protocol", requestProtocol)
-	req.Host = req.URL.Host
 	req.Header.Set(http3.CapsuleProtocolHeader, capsuleProtocolHeaderValue)
 	return &Request{req: req.WithContext(ctx)}, nil
 }

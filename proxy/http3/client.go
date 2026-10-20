@@ -276,10 +276,7 @@ func (c *Client) setupHTTPTunnel(ctx context.Context, target net.Destination, di
 	if target.Network == net.Network_TCP {
 		req = &http.Request{
 			Method: http.MethodConnect,
-			URL: &url.URL{
-				Scheme: "https",
-				Host:   target.NetAddr(),
-			},
+			URL:    &url.URL{Host: target.NetAddr()},
 			Header: make(http.Header),
 			Host:   target.NetAddr(),
 		}

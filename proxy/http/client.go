@@ -241,41 +241,54 @@ func (c *Client) setupHTTPTunnel(ctx context.Context, dest net.Destination, targ
 			} else {
 				targetHost = target.Address.IP().String()
 			}
-			uriTemplate := c.uriTemplate
-			if uriTemplate == nil {
-				var err error
-				scheme := "http"
-				if isTLS {
-					scheme = "https"
+			var u *url.URL
+			if c.uriTemplate == nil {
+				uriTemplate := uritemplate.MustNew("/.well-known/masque/udp/{target_host}/{target_port}/")
+				expanded, err := uriTemplate.Expand(uritemplate.Values{
+					"target_host": uritemplate.String(targetHost),
+					"target_port": uritemplate.String(target.Port.String()),
+				})
+				if err != nil {
+					return nil, nil, err
 				}
-				uriTemplate, err = uritemplate.New((&url.URL{
-					Scheme: scheme,
-					Host:   dest.NetAddr(),
-				}).String() + "/.well-known/masque/udp/{target_host}/{target_port}/")
+				u, err = url.Parse(expanded)
+				if err != nil {
+					return nil, nil, err
+				}
+				if isTLS {
+					u.Scheme = "https"
+				} else {
+					u.Scheme = "http"
+				}
+				u.Host = dest.NetAddr()
+			} else {
+				expanded, err := c.uriTemplate.Expand(uritemplate.Values{
+					"target_host": uritemplate.String(targetHost),
+					"target_port": uritemplate.String(target.Port.String()),
+				})
+				if err != nil {
+					return nil, nil, err
+				}
+				u, err = url.Parse(expanded)
 				if err != nil {
 					return nil, nil, err
 				}
 			}
-			rawURL, err := uriTemplate.Expand(uritemplate.Values{
-				"target_host": uritemplate.String(targetHost),
-				"target_port": uritemplate.String(target.Port.String()),
-			})
-			if err != nil {
-				return nil, nil, err
-			}
-			u, err := url.Parse(rawURL)
-			if err != nil {
-				return nil, nil, err
-			}
 			req.URL = u
 			req.Host = u.Host
 		}
-		if target.Network != net.Network_TCP || !writeFirstPayloadInH1 {
+		switch {
+		case target.Network != net.Network_TCP:
+			err := req.WriteProxy(rawConn)
+			if err != nil {
+				return nil, nil, err
+			}
+		case !writeFirstPayloadInH1:
 			err := req.Write(rawConn)
 			if err != nil {
 				return nil, nil, err
 			}
-		} else {
+		default:
 			buffer := bytes.NewBuffer(nil)
 			err := req.Write(buffer)
 			if err != nil {
@@ -328,37 +341,45 @@ func (c *Client) setupHTTPTunnel(ctx context.Context, dest net.Destination, targ
 
 	connectHTTP2 := func(h2clientConn *http2ClientConn) (net.Conn, bool, error) {
 		if target.Network != net.Network_TCP {
+			req.Header.Set(":protocol", "connect-udp")
+			req.Header.Set("capsule-protocol", "?1")
 			var targetHost string
 			if target.Address.Family().IsDomain() {
 				targetHost = target.Address.Domain()
 			} else {
 				targetHost = target.Address.IP().String()
 			}
-			uriTemplate := c.uriTemplate
-			if uriTemplate == nil {
-				var err error
-				uriTemplate, err = uritemplate.New((&url.URL{
-					Host: dest.NetAddr(),
-				}).String() + "/.well-known/masque/udp/{target_host}/{target_port}/")
+			var u *url.URL
+			if c.uriTemplate == nil {
+				uriTemplate := uritemplate.MustNew("/.well-known/masque/udp/{target_host}/{target_port}/")
+				expanded, err := uriTemplate.Expand(uritemplate.Values{
+					"target_host": uritemplate.String(targetHost),
+					"target_port": uritemplate.String(target.Port.String()),
+				})
+				if err != nil {
+					return nil, false, err
+				}
+				u, err = url.Parse(expanded)
+				if err != nil {
+					return nil, false, err
+				}
+				u.Scheme = "https"
+				u.Host = dest.NetAddr()
+			} else {
+				expanded, err := c.uriTemplate.Expand(uritemplate.Values{
+					"target_host": uritemplate.String(targetHost),
+					"target_port": uritemplate.String(target.Port.String()),
+				})
+				if err != nil {
+					return nil, false, err
+				}
+				u, err = url.Parse(expanded)
 				if err != nil {
 					return nil, false, err
 				}
 			}
-			rawURL, err := uriTemplate.Expand(uritemplate.Values{
-				"target_host": uritemplate.String(targetHost),
-				"target_port": uritemplate.String(target.Port.String()),
-			})
-			if err != nil {
-				return nil, false, err
-			}
-			u, err := url.Parse(rawURL)
-			if err != nil {
-				return nil, false, err
-			}
 			req.URL = u
-			req.URL.Host = u.Host
-			req.Header.Set(":protocol", "connect-udp")
-			req.Header.Set("capsule-protocol", "?1")
+			req.Host = u.Host
 		}
 		pr, pw := io.Pipe()
 		req.Body = pr
