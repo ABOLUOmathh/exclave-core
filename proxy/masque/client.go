@@ -49,7 +49,7 @@ type Client struct {
 	h2Transport    *http2.Transport
 	h3Transport    *http3.Transport
 	mtu            int32
-	template       *uritemplate.Template
+	reqURL         *url.URL
 	ctxLock        sync.Mutex
 	ctx            context.Context
 	cancel         context.CancelFunc
@@ -93,14 +93,11 @@ func (c *Client) InterfaceUpdate() {
 }
 
 func NewClient(ctx context.Context, config *ClientConfig) (*Client, error) {
-	if config.Version < 1 || config.Version > 3 {
-		return nil, newError("invalid http version")
-	}
 	serverAddr := net.Destination{
 		Address: config.Address.AsAddress(),
 		Port:    net.Port(config.Port),
 	}
-	if config.Version == 3 {
+	if config.Http3 {
 		serverAddr.Network = net.Network_UDP
 	} else {
 		serverAddr.Network = net.Network_TCP
@@ -116,22 +113,17 @@ func NewClient(ctx context.Context, config *ClientConfig) (*Client, error) {
 	if c.mtu == 0 {
 		c.mtu = 1350
 	}
-	switch config.Version {
-	case 3:
+	if config.Http3 {
 		c.h3Transport = &http3.Transport{EnableDatagrams: true}
-	case 2:
+	} else {
 		c.h2Transport = &http2.Transport{ReadIdleTimeout: time.Second * 15}
 	}
 	if len(config.UriTemplate) == 0 {
-		template, err := uritemplate.New((&url.URL{
+		c.reqURL = &url.URL{
 			Scheme: "https",
 			Host:   serverAddr.NetAddr(),
 			Path:   "/.well-known/masque/ip/*/*/",
-		}).String())
-		if err != nil {
-			return nil, err
 		}
-		c.template = template
 	} else {
 		template, err := uritemplate.New(config.UriTemplate)
 		if err != nil {
@@ -149,11 +141,11 @@ func NewClient(ctx context.Context, config *ClientConfig) (*Client, error) {
 		if err != nil {
 			return nil, err
 		}
-		template, err = uritemplate.New(rawURL)
+		u, err := url.Parse(rawURL)
 		if err != nil {
 			return nil, err
 		}
-		c.template = template
+		c.reqURL = u
 	}
 	c.ctx, c.cancel = context.WithCancel(context.Background())
 	return c, nil
@@ -259,13 +251,10 @@ func (c *Client) getTunnel(ctx context.Context, dialer internet.Dialer) (*tunnel
 		resp *http.Response
 		err  error
 	)
-	switch c.config.Version {
-	case 3:
+	if c.config.Http3 {
 		conn, resp, err = c.dialH3(ctx, dialer) // nolint: bodyclose
-	case 2:
-		conn, resp, err = c.dialH2(ctx, dialer) // nolint: bodyclose
-	case 1:
-		conn, resp, err = c.dialH1(ctx, dialer) // nolint: bodyclose
+	} else {
+		conn, resp, err = c.dialH1H2(ctx, dialer) // nolint: bodyclose
 	}
 	if err != nil {
 		return nil, err
@@ -321,7 +310,7 @@ func (c *Client) getTunnel(ctx context.Context, dialer internet.Dialer) (*tunnel
 	return tunnel, nil
 }
 
-func (c *Client) dialH1(ctx context.Context, dialer internet.Dialer) (*connectip.Conn, *http.Response, error) {
+func (c *Client) dialH1H2(ctx context.Context, dialer internet.Dialer) (*connectip.Conn, *http.Response, error) {
 	handler, ok := dialer.(*outbound.Handler)
 	if !ok {
 		panic("dialer is not *outbound.Handler")
@@ -332,55 +321,12 @@ func (c *Client) dialH1(ctx context.Context, dialer internet.Dialer) (*connectip
 	if handler.TransportLayerEnabled() {
 		return nil, nil, newError("transport layer enabled")
 	}
-	// FIXME: default ALPN should be "http/1.1" only
-	rawConn, err := dialer.Dial(ctx, c.serverAddr)
-	if err != nil {
-		return nil, nil, err
-	}
-	template := c.template
-	iConn := rawConn
-	if statConn, ok := iConn.(*internet.StatCouterConnection); ok {
-		iConn = statConn.Connection
-	}
-	if _, ok := iConn.(security.ConnectionApplicationProtocol); !ok && len(c.config.UriTemplate) == 0 {
-		template, err = uritemplate.New((&url.URL{
-			Scheme: "http",
-			Host:   c.serverAddr.NetAddr(),
-			Path:   "/.well-known/masque/ip/*/*/",
-		}).String())
-		if err != nil {
-			return nil, nil, err
-		}
-	}
-	req, err := connectip.NewHTTP1Request(ctx, template)
-	if err != nil {
-		return nil, nil, err
-	}
-	if c.config.Username != nil || c.config.Password != nil {
-		req.Header().Set("Authorization", "Basic "+base64.StdEncoding.EncodeToString([]byte(c.config.GetUsername()+":"+c.config.GetPassword())))
-	}
-	for key, value := range c.config.GetHeaders() {
-		req.Header().Set(key, value)
-	}
-	conn, resp, err := connectip.NewHTTP1ClientConn(rawConn).Dial(req) // nolint: bodyclose
-	if err != nil {
-		return nil, nil, err
-	}
-	return conn, resp, nil
-}
-
-func (c *Client) dialH2(ctx context.Context, dialer internet.Dialer) (*connectip.Conn, *http.Response, error) {
-	handler, ok := dialer.(*outbound.Handler)
-	if !ok {
-		panic("dialer is not *outbound.Handler")
-	}
-	if handler.MuxEnabled() {
-		return nil, nil, newError("mux enabled")
-	}
-	if handler.TransportLayerEnabled() {
-		return nil, nil, newError("transport layer enabled")
-	}
-	var h2ClientConn *http2ClientConn
+	var (
+		rawConn      net.Conn
+		h2ClientConn *http2ClientConn
+		err          error
+		isTLS        bool
+	)
 	c.clientConnLock.Lock()
 	if cacheH2ClientConn := c.h2ClientConn; cacheH2ClientConn != nil && cacheH2ClientConn.CanTakeNewRequest() {
 		h2ClientConn = cacheH2ClientConn
@@ -393,7 +339,7 @@ func (c *Client) dialH2(ctx context.Context, dialer internet.Dialer) (*connectip
 		} else {
 			c.clientConnLock.Unlock()
 		}
-		rawConn, err := dialer.Dial(ctx, c.serverAddr)
+		rawConn, err = dialer.Dial(ctx, c.serverAddr)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -403,27 +349,45 @@ func (c *Client) dialH2(ctx context.Context, dialer internet.Dialer) (*connectip
 		}
 		nextProto := ""
 		if connALPNGetter, ok := iConn.(security.ConnectionApplicationProtocol); ok {
+			isTLS = true
 			nextProto, err = connALPNGetter.GetConnectionApplicationProtocol()
 			if err != nil {
 				rawConn.Close()
 				return nil, nil, err
 			}
 		}
-		if nextProto != http2.NextProtoTLS {
+		switch nextProto {
+		case "h2":
+			cc, err := c.h2Transport.NewClientConn(rawConn)
+			if err != nil {
+				rawConn.Close()
+				return nil, nil, err
+			}
+			h2ClientConn = newH2ClientConn(cc)
+			c.clientConnLock.Lock()
+			c.h2ClientConn = h2ClientConn
+			c.clientConnLock.Unlock()
+		case "http/1.1", "":
+		default:
 			rawConn.Close()
-			return nil, nil, newError("invalid alpn, want h2")
+			return nil, nil, newError("invalid alpn")
 		}
-		cc, err := c.h2Transport.NewClientConn(rawConn)
-		if err != nil {
-			rawConn.Close()
-			return nil, nil, err
-		}
-		h2ClientConn = newH2ClientConn(cc)
-		c.clientConnLock.Lock()
-		c.h2ClientConn = h2ClientConn
-		c.clientConnLock.Unlock()
+
 	}
-	req, err := connectip.NewHTTP2Request(ctx, c.template)
+	var req *connectip.Request
+	if h2ClientConn != nil {
+		req, err = connectip.NewHTTP2Request(ctx, c.reqURL)
+	} else {
+		var reqURL *url.URL
+		if !isTLS && len(c.config.UriTemplate) == 0 {
+			reqURL = new(url.URL)
+			*reqURL = *c.reqURL
+			reqURL.Scheme = "http"
+		} else {
+			reqURL = c.reqURL
+		}
+		req, err = connectip.NewHTTP1Request(ctx, reqURL)
+	}
 	if err != nil {
 		return nil, nil, err
 	}
@@ -433,15 +397,25 @@ func (c *Client) dialH2(ctx context.Context, dialer internet.Dialer) (*connectip
 	for key, value := range c.config.GetHeaders() {
 		req.Header().Set(key, value)
 	}
-	conn, resp, err := connectip.NewHTTP2ClientConn(h2ClientConn).Dial(req) // nolint: bodyclose
-	if err != nil {
-		c.clientConnLock.Lock()
-		c.h2ClientConn = nil
-		c.clientConnLock.Unlock()
-		h2ClientConn.Close()
-		return nil, nil, err
+	if h2ClientConn != nil {
+		conn, resp, err := connectip.NewHTTP2ClientConn(h2ClientConn).Dial(req) // nolint: bodyclose
+		if err != nil {
+			c.clientConnLock.Lock()
+			c.h2ClientConn = nil
+			c.clientConnLock.Unlock()
+			h2ClientConn.Close()
+			rawConn.Close()
+			return nil, nil, err
+		}
+		return conn, resp, nil
+	} else {
+		conn, resp, err := connectip.NewHTTP1ClientConn(rawConn).Dial(req) // nolint: bodyclose
+		if err != nil {
+			rawConn.Close()
+			return nil, nil, err
+		}
+		return conn, resp, nil
 	}
-	return conn, resp, nil
 }
 
 func (c *Client) dialH3(ctx context.Context, dialer internet.Dialer) (*connectip.Conn, *http.Response, error) {
@@ -506,7 +480,7 @@ func (c *Client) dialH3(ctx context.Context, dialer internet.Dialer) (*connectip
 		c.h3ClientConn = h3ClientConn
 		c.clientConnLock.Unlock()
 	}
-	req, err := connectip.NewRequest(ctx, c.template)
+	req, err := connectip.NewRequest(ctx, c.reqURL)
 	if err != nil {
 		return nil, nil, err
 	}
