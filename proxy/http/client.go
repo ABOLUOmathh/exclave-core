@@ -60,9 +60,11 @@ func (c *Client) Close() error {
 	clear(c.cachedH2Conns)
 	c.cachedH2Mutex.Unlock()
 	for cachedH2Conn := range cachedH2Conns {
-		for elem := cachedH2Conn.Front(); elem != nil; elem = elem.Next() {
+		for elem := cachedH2Conn.Front(); elem != nil; {
+			nextElem := elem.Next()
 			_ = elem.Value.(*http2ClientConn).Close()
 			cachedH2Conn.Remove(elem)
+			elem = nextElem
 		}
 	}
 	return nil

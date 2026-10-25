@@ -35,9 +35,11 @@ func (p *ConnectionPool) Remove(elem *list.Element) {
 func (p *ConnectionPool) ResetConnections() {
 	p.mu.Lock()
 	deadlineSetters := make([]deadlineSetter, 0, p.list.Len())
-	for elem := p.list.Front(); elem != nil; elem = elem.Next() {
+	for elem := p.list.Front(); elem != nil; {
+		nextElem := elem.Next()
 		deadlineSetters = append(deadlineSetters, elem.Value.(deadlineSetter))
 		_ = p.list.Remove(elem)
+		elem = nextElem
 	}
 	p.mu.Unlock()
 	now := time.Now()
