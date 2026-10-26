@@ -257,7 +257,7 @@ func (c *Client) setupHTTPTunnel(ctx context.Context, target net.Destination, ta
 						conn.Close()
 						return nil, newError("application layer protocol unsupported")
 					}
-					nextProto, err := connALPNGetter.GetConnectionApplicationProtocol()
+					nextProto, err := connALPNGetter.GetConnectionApplicationProtocol(ctx)
 					if err != nil {
 						conn.Close()
 						return nil, err

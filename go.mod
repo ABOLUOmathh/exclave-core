@@ -14,7 +14,7 @@ require (
 	github.com/exclavenetwork/hysteria/extras/v2 v2.13.0-1
 	github.com/exclavenetwork/reality v0.0.0-20261024092657-66bffb4f0244
 	github.com/exclavenetwork/sing-juicity v0.3.1
-	github.com/exclavenetwork/sing-shadowquic v0.0.0-20261003180916-bfda7e07df34
+	github.com/exclavenetwork/sing-shadowquic v0.0.0-20261025201941-b0544c564b00
 	github.com/golang-collections/go-datastructures v0.0.0-20150211160725-59788d5eb259
 	github.com/golang/protobuf v1.5.4
 	github.com/google/go-cmp v0.7.0

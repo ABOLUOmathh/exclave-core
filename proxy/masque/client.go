@@ -150,7 +150,7 @@ func (c *Client) Process(ctx context.Context, link *transport.Link, dialer inter
 	}
 	dest := ob.Target
 
-	tunnel, err := c.getTunnel(core.ToBackgroundDetachedContext(ctx), dialer)
+	tunnel, err := c.getTunnel(ctx, dialer)
 	if err != nil {
 		return err
 	}
@@ -231,8 +231,9 @@ func (c *Client) getTunnel(ctx context.Context, dialer internet.Dialer) (*tunnel
 	}
 	ctx, cancel := context.WithCancel(ctx)
 	c.ctxLock.Lock()
-	stop := context.AfterFunc(c.ctx, cancel)
+	clientCtx := c.ctx
 	c.ctxLock.Unlock()
+	stop := context.AfterFunc(clientCtx, cancel)
 	defer stop()
 	var (
 		conn *connectip.Conn
@@ -290,8 +291,8 @@ func (c *Client) getTunnel(ctx context.Context, dialer internet.Dialer) (*tunnel
 		return nil, err
 	}
 	c.tunnel.Store(tunnel)
-	go tunnel.serveAddressRequests(ctx, connectipConn)
-	go c.serveAddressAssignments(ctx, connectipConn, tunnel, localAddresses)
+	go tunnel.serveAddressRequests(clientCtx, connectipConn)
+	go c.serveAddressAssignments(clientCtx, connectipConn, tunnel, localAddresses)
 	return tunnel, nil
 }
 
@@ -330,7 +331,7 @@ func (c *Client) dialH1H2(ctx context.Context, dialer internet.Dialer) (*connect
 		nextProto := ""
 		if connALPNGetter, ok := iConn.(security.ConnectionApplicationProtocol); ok {
 			isTLS = true
-			nextProto, err = connALPNGetter.GetConnectionApplicationProtocol()
+			nextProto, err = connALPNGetter.GetConnectionApplicationProtocol(ctx)
 			if err != nil {
 				rawConn.Close()
 				return nil, nil, err

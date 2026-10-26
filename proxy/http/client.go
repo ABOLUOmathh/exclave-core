@@ -460,7 +460,7 @@ func (c *Client) setupHTTPTunnel(ctx context.Context, dest net.Destination, targ
 	var isTLS bool
 	if connALPNGetter, ok := iConn.(security.ConnectionApplicationProtocol); ok {
 		isTLS = true
-		nextProto, err = connALPNGetter.GetConnectionApplicationProtocol()
+		nextProto, err = connALPNGetter.GetConnectionApplicationProtocol(ctx)
 		if err != nil {
 			rawConn.Close()
 			return nil, nil, err
