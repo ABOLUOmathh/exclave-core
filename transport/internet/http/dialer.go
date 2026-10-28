@@ -3,6 +3,7 @@ package http
 import (
 	"context"
 	gotls "crypto/tls"
+	"maps"
 	gonet "net"
 	"net/http"
 	"net/url"
@@ -41,11 +42,12 @@ func (t *transportConnectionState) IsTransientStorageLifecycleReceiver() {
 
 func (t *transportConnectionState) Close() error {
 	t.scopedDialerAccess.Lock()
-	for _, client := range t.scopedDialerMap {
-		client.CloseIdleConnections()
-	}
+	clients := maps.Values(t.scopedDialerMap)
 	clear(t.scopedDialerMap)
 	t.scopedDialerAccess.Unlock()
+	for client := range clients {
+		client.CloseIdleConnections()
+	}
 	return nil
 }
 
@@ -119,7 +121,7 @@ func getHTTPClient(ctx context.Context, dest net.Destination, securityEngine *se
 
 			protocol := ""
 			if connAPLNGetter, ok := cn.(security.ConnectionApplicationProtocol); ok {
-				connectionALPN, err := connAPLNGetter.GetConnectionApplicationProtocol()
+				connectionALPN, err := connAPLNGetter.GetConnectionApplicationProtocol(detachedContext)
 				if err != nil {
 					cn.Close()
 					return nil, newError("failed to get connection ALPN").Base(err).AtWarning()

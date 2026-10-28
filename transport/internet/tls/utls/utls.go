@@ -94,10 +94,6 @@ func (e Engine) Client(conn net.Conn, opts ...security.Option) (security.Conn, e
 		return nil, newError("unable to build utls handshake state after modification").Base(err)
 	}
 
-	err = utlsClientConn.Handshake()
-	if err != nil {
-		return nil, newError("unable to finish utls handshake").Base(err)
-	}
 	return UTLSClientConnection{
 		UConn:               utlsClientConn,
 		suppressCloseNotify: new(atomic.Bool),
@@ -124,8 +120,8 @@ func (u UTLSClientConnection) Close() error {
 	return u.UConn.Close()
 }
 
-func (u UTLSClientConnection) GetConnectionApplicationProtocol() (string, error) {
-	if err := u.Handshake(); err != nil {
+func (u UTLSClientConnection) GetConnectionApplicationProtocol(ctx context.Context) (string, error) {
+	if err := u.HandshakeContext(ctx); err != nil {
 		return "", err
 	}
 	return u.ConnectionState().NegotiatedProtocol, nil

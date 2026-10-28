@@ -51,9 +51,6 @@ func (c *ClientConn) Dial(req *Request) (*Conn, *http.Response, error) {
 	if !settings.EnableExtendedConnect {
 		return nil, nil, errors.New("connect-ip: server didn't enable Extended CONNECT")
 	}
-	if !settings.EnableDatagrams {
-		return nil, nil, errors.New("connect-ip: server didn't enable datagrams")
-	}
 
 	rstr, err := c.clientConn.OpenRequestStream(httpReq.Context())
 	if err != nil {
@@ -77,5 +74,5 @@ func (c *ClientConn) Dial(req *Request) (*Conn, *http.Response, error) {
 		return nil, rsp, fmt.Errorf("connect-ip: server responded with %d", rsp.StatusCode)
 	}
 	keepStream = true
-	return newProxiedConn(rstr), rsp, nil
+	return newProxiedConn(rstr, settings.EnableDatagrams), rsp, nil
 }

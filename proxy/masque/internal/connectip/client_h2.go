@@ -10,7 +10,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"net"
 	"net/http"
 	"os"
 	"sync"
@@ -22,11 +21,11 @@ import (
 const maxStreamBuffer = 32 << 10
 
 type HTTP2ClientConn struct {
-	roundTripper http.RoundTripper
+	clientConn http.RoundTripper
 }
 
-func NewHTTP2ClientConn(rt http.RoundTripper) *HTTP2ClientConn {
-	return &HTTP2ClientConn{roundTripper: rt}
+func NewHTTP2ClientConn(clientConn http.RoundTripper) *HTTP2ClientConn {
+	return &HTTP2ClientConn{clientConn: clientConn}
 }
 
 func (c *HTTP2ClientConn) Dial(req *Request) (*Conn, *http.Response, error) {
@@ -43,9 +42,8 @@ func (c *HTTP2ClientConn) Dial(req *Request) (*Conn, *http.Response, error) {
 	stop := context.AfterFunc(ctx, cancel)
 	body := newStreamBuffer()
 	r := httpReq.Clone(streamCtx)
-	r.Header.Set(":protocol", requestProtocol)
 	r.Body = body
-	rsp, err := c.roundTripper.RoundTrip(r)
+	rsp, err := c.clientConn.RoundTrip(r)
 	if !stop() {
 		if err == nil {
 			rsp.Body.Close()
@@ -67,14 +65,16 @@ func (c *HTTP2ClientConn) Dial(req *Request) (*Conn, *http.Response, error) {
 		rsp:    rsp.Body,
 		cancel: cancel,
 	}
-	return newProxiedConn(str), rsp, nil
+	return newProxiedConn(str, false), rsp, nil
 }
 
 type http2Stream struct {
-	reader *bufio.Reader
-	body   *streamBuffer
-	rsp    io.Closer
-	cancel context.CancelFunc
+	reader    *bufio.Reader
+	body      *streamBuffer
+	rsp       io.Closer
+	cancel    context.CancelFunc
+	closeOnce sync.Once
+	closeErr  error
 }
 
 func (s *http2Stream) Read(b []byte) (int, error) {
@@ -90,25 +90,24 @@ func (s *http2Stream) Write(b []byte) (int, error) {
 }
 
 func (s *http2Stream) Close() error {
-	return s.body.Close()
+	s.closeOnce.Do(func() {
+		s.cancel()
+		s.rsp.Close()
+		s.closeErr = s.body.Close()
+	})
+	return s.closeErr
 }
 
-func (s *http2Stream) CancelRead(quic.StreamErrorCode) {
-	s.abort()
+func (s *http2Stream) CancelRead(_ quic.StreamErrorCode) {
+	s.Close()
 }
 
-func (s *http2Stream) CancelWrite(quic.StreamErrorCode) {
-	s.abort()
+func (s *http2Stream) CancelWrite(_ quic.StreamErrorCode) {
+	s.Close()
 }
 
 func (s *http2Stream) SetWriteDeadline(t time.Time) error {
 	return s.body.SetWriteDeadline(t)
-}
-
-func (s *http2Stream) abort() {
-	s.cancel()
-	s.body.CloseWithError(net.ErrClosed)
-	s.rsp.Close()
 }
 
 type streamBuffer struct {
@@ -221,14 +220,14 @@ func (s *http2ResponseStream) Write(b []byte) (int, error) {
 }
 
 func (s *http2ResponseStream) Close() error {
-	return nil
+	return s.body.Close()
 }
 
-func (s *http2ResponseStream) CancelRead(quic.StreamErrorCode) {
+func (s *http2ResponseStream) CancelRead(_ quic.StreamErrorCode) {
 	s.body.Close()
 }
 
-func (s *http2ResponseStream) CancelWrite(quic.StreamErrorCode) {
+func (s *http2ResponseStream) CancelWrite(_ quic.StreamErrorCode) {
 	s.body.Close()
 }
 
